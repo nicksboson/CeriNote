@@ -1,5 +1,6 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import Record from './pages/Record'
+import Report from './pages/Report'
 
 function Home() {
   return (
@@ -67,8 +68,10 @@ function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/record" element={<Record />} />
+      <Route path="/report" element={<Report />} />
     </Routes>
   )
 }
 
 export default App
+
