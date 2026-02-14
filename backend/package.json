@@ -1,0 +1,18 @@
+{
+    "name": "cerinote-backend",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "node --watch src/index.js",
+        "start": "node src/index.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^17.3.1",
+        "express": "^5.1.0",
+        "groq-sdk": "^0.37.0",
+        "multer": "^1.4.5-lts.2",
+        "uuid": "^11.1.0"
+    }
+}
