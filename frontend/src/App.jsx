@@ -24,7 +24,7 @@ function Home() {
         </div>
 
         <p className="text-gray-400 text-center max-w-md text-lg leading-relaxed">
-          Record conversations, capture ideas, and save your voice notes — all in one place.
+          Record your consultation, get an instant clinical report. Powered by AI — no manual notes needed.
         </p>
 
         {/* CTA Button */}
@@ -38,15 +38,15 @@ function Home() {
             <line x1="12" y1="19" x2="12" y2="23" />
             <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
-          Start Recording
+          Start Session
         </Link>
 
-        {/* Features */}
+        {/* How it works */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 w-full max-w-xl">
           {[
-            { icon: '🎙️', title: 'Record', desc: 'Capture voice in high quality' },
-            { icon: '💾', title: 'Save', desc: 'Store securely on the server' },
-            { icon: '📥', title: 'Download', desc: 'Export anytime as .webm' },
+            { icon: '🎙️', title: '1. Record', desc: 'Record your patient consultation' },
+            { icon: '🤖', title: '2. AI Processes', desc: 'Transcription + Dialogue + Report' },
+            { icon: '📋', title: '3. Report Ready', desc: 'Instant clinical documentation' },
           ].map((f) => (
             <div
               key={f.title}
@@ -74,4 +74,3 @@ function App() {
 }
 
 export default App
-

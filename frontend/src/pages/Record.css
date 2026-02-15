@@ -1,6 +1,814 @@
-/* ── Record Page — Animations Only (Tailwind handles layout/spacing) ── */
+/* ═══════════════════════════════════════════════════ */
+/* ══  CeriNote — Record Page Styles  ═══════════════ */
+/* ═══════════════════════════════════════════════════ */
 
-/* ── Animated Background Blobs ─────────────────────── */
+/* ── Page Layout ──────────────────────────────────── */
+
+.record-page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  background: #0a0a0f;
+  color: #e5e7eb;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Header ───────────────────────────────────────── */
+
+.record-header {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 32px 0;
+  box-sizing: border-box;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+}
+
+.back-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(-2px);
+}
+
+.record-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  background: linear-gradient(to right, #c084fc, #818cf8, #7dd3fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+/* ── Main Content ─────────────────────────────────── */
+
+.record-main {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 800px;
+  padding: 20px 32px 64px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ══  RECORDER SECTION  ════════════════════════════ */
+/* ═══════════════════════════════════════════════════ */
+
+.recorder-section {
+  width: 100%;
+  margin-top: 32px;
+}
+
+.recorder-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 40px 32px;
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.recorder-instruction {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.recorder-instruction h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 0 0 8px;
+}
+
+.recorder-instruction p {
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+/* ── Waveform ─────────────────────────────────────── */
+
+.waveform-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 90px;
+  margin-bottom: 8px;
+}
+
+.waveform-bar {
+  width: 5px;
+  border-radius: 100px;
+  background: linear-gradient(to bottom, #818cf8, #a855f7);
+  transition: height 80ms ease-out;
+  min-height: 4px;
+}
+
+/* ── Mic Area ─────────────────────────────────────── */
+
+.mic-area {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Pulse Rings ──────────────────────────────────── */
+
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 2px solid rgba(129, 140, 248, 0.25);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.pulse-ring-1 {
+  animation: pulseRing 2s ease-out infinite;
+}
+
+.pulse-ring-2 {
+  animation: pulseRing 2s ease-out infinite 0.6s;
+}
+
+.pulse-ring-3 {
+  animation: pulseRing 2s ease-out infinite 1.2s;
+}
+
+@keyframes pulseRing {
+  0% {
+    width: 120px;
+    height: 120px;
+    opacity: 0.6;
+  }
+
+  100% {
+    width: 280px;
+    height: 280px;
+    opacity: 0;
+  }
+}
+
+/* ── Mic Button ───────────────────────────────────── */
+
+.mic-btn {
+  position: relative;
+  z-index: 2;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #2a2a3d, #1e1e2e);
+  box-shadow:
+    0 0 0 6px rgba(129, 140, 248, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #818cf8;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mic-btn:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 8px rgba(129, 140, 248, 0.15),
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #a5b4fc;
+}
+
+.mic-btn--active {
+  background: linear-gradient(145deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow:
+    0 0 0 6px rgba(239, 68, 68, 0.2),
+    0 8px 32px rgba(239, 68, 68, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: micGlow 1.5s ease-in-out infinite;
+}
+
+.mic-btn--active:hover {
+  box-shadow:
+    0 0 0 8px rgba(239, 68, 68, 0.3),
+    0 12px 40px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mic-btn--paused {
+  animation: none;
+  background: linear-gradient(145deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow:
+    0 0 0 6px rgba(245, 158, 11, 0.15),
+    0 8px 32px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+@keyframes micGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 32px rgba(239, 68, 68, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.1), 0 8px 48px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* ── Timer ─────────────────────────────────────────── */
+
+.timer {
+  margin-top: 20px;
+  font-size: 2.5rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 4px;
+  color: #4b5563;
+  transition: color 0.3s;
+}
+
+.timer--active {
+  color: #e5e7eb;
+}
+
+/* ── Recording Controls ───────────────────────────── */
+
+.recording-controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+
+.ctrl-btn--pause {
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.ctrl-btn--pause:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.ctrl-btn--stop {
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1));
+  color: #a5b4fc;
+}
+
+.ctrl-btn--stop:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.18));
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ══  PROCESSING PIPELINE  ═════════════════════════ */
+/* ═══════════════════════════════════════════════════ */
+
+.pipeline-section {
+  width: 100%;
+  margin-top: 32px;
+}
+
+.pipeline-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  padding: 36px 32px;
+  backdrop-filter: blur(20px);
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.pipeline-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(129, 140, 248, 0.15);
+  border-top-color: #818cf8;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pipeline-header h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 0;
+}
+
+.pipeline-header p {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+/* ── Pipeline Steps ───────────────────────────────── */
+
+.pipeline-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  transition: all 0.4s ease;
+  position: relative;
+}
+
+/* Connecting line between steps */
+.pipeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 37px;
+  bottom: -1px;
+  width: 2px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateX(-50%);
+}
+
+.step--done::after {
+  background: rgba(52, 211, 153, 0.3) !important;
+}
+
+.step--active {
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.step--done {
+  opacity: 0.7;
+}
+
+.step--pending {
+  opacity: 0.35;
+}
+
+.step-indicator {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: all 0.4s ease;
+}
+
+.step--done .step-indicator {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.step--active .step-indicator {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.step--pending .step-indicator {
+  background: rgba(255, 255, 255, 0.04);
+  color: #6b7280;
+}
+
+.step-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(129, 140, 248, 0.2);
+  border-top-color: #818cf8;
+  animation: spin 0.7s linear infinite;
+}
+
+.step-number {
+  font-variant-numeric: tabular-nums;
+}
+
+.step-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-icon {
+  font-size: 1.25rem;
+}
+
+.step-content h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.step-content p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.step--pending .step-content h4 {
+  color: #6b7280;
+}
+
+.step--active .step-content h4 {
+  color: #a5b4fc;
+}
+
+.step--done .step-content h4 {
+  color: #34d399;
+}
+
+/* ── Pipeline Error ───────────────────────────────── */
+
+.pipeline-error {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.error-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.pipeline-error h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.pipeline-error p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.retry-btn {
+  margin-left: auto;
+  padding: 8px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+
+.retry-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ══  RESULTS / REPORT SECTION  ════════════════════ */
+/* ═══════════════════════════════════════════════════ */
+
+.result-section {
+  width: 100%;
+  margin-top: 32px;
+}
+
+/* ── Success Banner ───────────────────────────────── */
+
+.success-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(16, 185, 129, 0.04));
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  margin-bottom: 20px;
+}
+
+.success-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.success-banner h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #34d399;
+}
+
+.success-banner p {
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.new-session-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.new-session-btn:hover {
+  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+}
+
+/* ── Tabs ─────────────────────────────────────────── */
+
+.result-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 16px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+
+.tab-btn:hover {
+  color: #d1d5db;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn--active {
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.18);
+}
+
+/* ── Result Content Card ──────────────────────────── */
+
+.result-content {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 24px;
+  backdrop-filter: blur(20px);
+}
+
+.result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.result-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.copy-btn {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  color: #d1d5db;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Report Formatting ────────────────────────────── */
+
+.report-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.report-section-header {
+  color: #818cf8;
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.report-section-header:first-child {
+  margin-top: 0;
+}
+
+.report-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding-left: 8px;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: #d1d5db;
+}
+
+.report-bullet-dot {
+  color: #818cf8;
+  font-weight: 700;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.report-text {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: #d1d5db;
+  margin: 0 0 6px;
+}
+
+.report-bold {
+  color: #f3f4f6;
+  font-weight: 600;
+}
+
+.report-spacer {
+  height: 8px;
+}
+
+/* ── Dialogue Formatting ──────────────────────────── */
+
+.dialogue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.dialogue-line {
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.dialogue-doctor {
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
+.dialogue-patient {
+  background: rgba(168, 85, 247, 0.06);
+  border: 1px solid rgba(168, 85, 247, 0.12);
+  color: #c4b5fd;
+}
+
+.dialogue-unknown {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #9ca3af;
+}
+
+.dialogue-icon {
+  font-size: 0.75rem;
+  margin-right: 6px;
+}
+
+/* ── Transcript Formatting ────────────────────────── */
+
+.transcript-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.transcript-body p {
+  font-size: 0.875rem;
+  line-height: 1.8;
+  color: #9ca3af;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ══  ANIMATED BACKGROUND BLOBS  ═══════════════════ */
+/* ═══════════════════════════════════════════════════ */
 
 .blob-1 {
   width: 500px;
@@ -73,108 +881,9 @@
   }
 }
 
-/* ── Pulse Rings ───────────────────────────────────── */
-
-.pulse-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  border: 2px solid rgba(129, 140, 248, 0.25);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  margin-top: 24px;
-}
-
-.pulse-ring-1 {
-  animation: pulseRing 2s ease-out infinite;
-}
-
-.pulse-ring-2 {
-  animation: pulseRing 2s ease-out infinite 0.6s;
-}
-
-.pulse-ring-3 {
-  animation: pulseRing 2s ease-out infinite 1.2s;
-}
-
-@keyframes pulseRing {
-  0% {
-    width: 120px;
-    height: 120px;
-    opacity: 0.6;
-  }
-
-  100% {
-    width: 280px;
-    height: 280px;
-    opacity: 0;
-  }
-}
-
-/* ── Mic Button States ─────────────────────────────── */
-
-.mic-btn {
-  background: linear-gradient(145deg, #2a2a3d, #1e1e2e);
-  box-shadow:
-    0 0 0 6px rgba(129, 140, 248, 0.08),
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  color: #818cf8;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.mic-btn:hover {
-  transform: scale(1.08);
-  box-shadow:
-    0 0 0 8px rgba(129, 140, 248, 0.15),
-    0 12px 40px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: #a5b4fc;
-}
-
-.mic-btn--active {
-  background: linear-gradient(145deg, #ef4444, #dc2626);
-  color: #fff;
-  box-shadow:
-    0 0 0 6px rgba(239, 68, 68, 0.2),
-    0 8px 32px rgba(239, 68, 68, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: micGlow 1.5s ease-in-out infinite;
-}
-
-.mic-btn--active:hover {
-  box-shadow:
-    0 0 0 8px rgba(239, 68, 68, 0.3),
-    0 12px 40px rgba(239, 68, 68, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.mic-btn--paused {
-  animation: none;
-  background: linear-gradient(145deg, #f59e0b, #d97706);
-  color: #fff;
-  box-shadow:
-    0 0 0 6px rgba(245, 158, 11, 0.15),
-    0 8px 32px rgba(245, 158, 11, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-@keyframes micGlow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 32px rgba(239, 68, 68, 0.3);
-  }
-
-  50% {
-    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.1), 0 8px 48px rgba(239, 68, 68, 0.4);
-  }
-}
-
-/* ── Fade Slide Up Animation ───────────────────────── */
+/* ═══════════════════════════════════════════════════ */
+/* ══  UTILITY ANIMATIONS  ══════════════════════════ */
+/* ═══════════════════════════════════════════════════ */
 
 @keyframes fadeSlideUp {
   0% {
@@ -190,4 +899,97 @@
 
 .animate-fade-slide-up {
   animation: fadeSlideUp 0.5s ease forwards;
+}
+
+/* ── Custom Scrollbar ─────────────────────────────── */
+
+.report-body::-webkit-scrollbar,
+.dialogue-body::-webkit-scrollbar,
+.transcript-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.report-body::-webkit-scrollbar-track,
+.dialogue-body::-webkit-scrollbar-track,
+.transcript-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.report-body::-webkit-scrollbar-thumb,
+.dialogue-body::-webkit-scrollbar-thumb,
+.transcript-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.report-body::-webkit-scrollbar-thumb:hover,
+.dialogue-body::-webkit-scrollbar-thumb:hover,
+.transcript-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ══  RESPONSIVE  ══════════════════════════════════ */
+/* ═══════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  .record-header {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px 20px 0;
+  }
+
+  .record-main {
+    padding: 12px 20px 48px;
+  }
+
+  .recorder-card {
+    padding: 28px 20px;
+  }
+
+  .mic-btn {
+    width: 90px;
+    height: 90px;
+  }
+
+  .timer {
+    font-size: 2rem;
+  }
+
+  .recording-controls {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ctrl-btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .success-banner {
+    flex-wrap: wrap;
+  }
+
+  .new-session-btn {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .result-tabs {
+    flex-direction: column;
+  }
+
+  .pipeline-error {
+    flex-wrap: wrap;
+  }
+
+  .retry-btn {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+  }
 }
