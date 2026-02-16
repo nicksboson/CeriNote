@@ -251,3 +251,54 @@
         transform: translateY(0);
     }
 }
+
+/* ── Clinical Intelligence Tab ─────────────────── */
+.clinical-intel-view {
+    animation: fadeSlideUp 0.4s ease-out;
+}
+
+.clinical-intel-view h3 {
+    margin: 0;
+}
+
+.clinical-intel-view .space-y-3>*+* {
+    margin-top: 12px;
+}
+
+.clinical-intel-view .grid {
+    display: grid;
+    gap: 12px;
+}
+
+.clinical-intel-view .grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 640px) {
+    .clinical-intel-view .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Tabs overflow for mobile ──────────────────── */
+.tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    white-space: nowrap;
+    min-width: max-content;
+}
+
+/* ── Tool button disabled state ────────────────── */
+.tool-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}

@@ -6,6 +6,11 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import Groq from 'groq-sdk';
 import { generateMedicalReport } from '../services/reportService.js';
+import { detectRisks } from '../services/riskDetectionService.js';
+import { suggestICDCodes, estimateScaleScores } from '../services/clinicalService.js';
+import { getRetentionDays as getStorageRetentionDays } from '../services/storageService.js';
+import { logAction, AUDIT_ACTIONS } from '../services/auditService.js';
+import { hasConsent } from '../services/consentService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +45,7 @@ const upload = multer({
             'audio/mp4',
             'audio/ogg',
             'audio/x-m4a',
-            'video/webm', // some browsers report webm audio as video/webm
+            'video/webm',
         ];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
@@ -51,11 +56,27 @@ const upload = multer({
 });
 
 // ── In-memory recordings store ─────────────────────
-// In production, replace this with a database
 let recordings = [];
 
+// ── Retention Check ───────────────────────────────
+// (Using getRetentionDays imported from storageService)
+
+
+/**
+ * Delete the raw audio file for a session (zero-retention).
+ */
+const deleteAudioFile = (recording) => {
+    if (!recording.filename) return;
+    const filePath = path.join(uploadsDir, recording.filename);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🔒 Zero-retention: Deleted audio file ${recording.filename}`);
+    }
+    recording.audioDeleted = true;
+    recording.audioDeletedAt = new Date().toISOString();
+};
+
 // ── POST /api/recordings/upload ────────────────────
-// Upload a new audio recording
 router.post('/upload', upload.single('audio'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file provided' });
@@ -74,6 +95,7 @@ router.post('/upload', upload.single('audio'), (req, res) => {
     };
 
     recordings.push(recording);
+    logAction(AUDIT_ACTIONS.SESSION_CREATED, recording.id, { name: recording.name });
 
     console.log(`📁 Saved recording: ${recording.name} (${(recording.size / 1024).toFixed(1)} KB)`);
 
@@ -84,19 +106,17 @@ router.post('/upload', upload.single('audio'), (req, res) => {
 });
 
 // ── GET /api/recordings ────────────────────────────
-// List all recordings
 router.get('/', (req, res) => {
     res.json({
         count: recordings.length,
         recordings: recordings.map((r) => ({
             ...r,
-            url: `http://localhost:${process.env.PORT || 5000}${r.url}`,
+            url: r.audioDeleted ? null : `http://localhost:${process.env.PORT || 5000}${r.url}`,
         })),
     });
 });
 
 // ── GET /api/recordings/:id ────────────────────────
-// Get a single recording by ID
 router.get('/:id', (req, res) => {
     const recording = recordings.find((r) => r.id === req.params.id);
     if (!recording) {
@@ -104,12 +124,11 @@ router.get('/:id', (req, res) => {
     }
     res.json({
         ...recording,
-        url: `http://localhost:${process.env.PORT || 5000}${recording.url}`,
+        url: recording.audioDeleted ? null : `http://localhost:${process.env.PORT || 5000}${recording.url}`,
     });
 });
 
 // ── DELETE /api/recordings/:id ─────────────────────
-// Delete a recording
 router.delete('/:id', (req, res) => {
     const index = recordings.findIndex((r) => r.id === req.params.id);
     if (index === -1) {
@@ -125,11 +144,12 @@ router.delete('/:id', (req, res) => {
         console.log(`🗑️  Deleted file: ${deleted.filename}`);
     }
 
+    logAction(AUDIT_ACTIONS.SESSION_DELETED, deleted.id, { name: deleted.name });
+
     res.json({ message: 'Recording deleted', recording: deleted });
 });
 
 // ── POST /api/recordings/:id/transcribe ────────────
-// Transcribe a recording using Groq Whisper, then structure as Doctor/Patient dialogue
 router.post('/:id/transcribe', async (req, res) => {
     const recording = recordings.find((r) => r.id === req.params.id);
     if (!recording) {
@@ -163,6 +183,7 @@ router.post('/:id/transcribe', async (req, res) => {
         recording.transcriptionSegments = transcription.segments || [];
 
         console.log(`✅ Transcription complete (${rawTranscript.length} chars)`);
+        logAction(AUDIT_ACTIONS.TRANSCRIPTION_COMPLETED, recording.id, { chars: rawTranscript.length });
 
         // ─── Step 2: Structure as Doctor/Patient Dialogue ─
         console.log(`🔄 Step 2/2 — Structuring dialogue...`);
@@ -171,11 +192,11 @@ router.post('/:id/transcribe', async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: `You are a medical documentation structuring assistant.\n\nYour task is ONLY to restructure the given transcript into a dialogue format.\n\nSTRICT RULES:\n\nDo NOT summarize.\nDo NOT paraphrase.\nDo NOT modify wording.\nDo NOT add new words.\nDo NOT remove words.\nDo NOT correct grammar.\nPreserve original language exactly as spoken.\nIf speaker identity is unclear, label as: Unknown:\nOutput format must be strictly:\nDoctor: "exact words" Patient: "exact words"\n\nThe doctor always starts the conversation\nEach dialogue line must be on a new line.\nDo NOT include explanations.\nReturn ONLY structured dialogue.\nTranscript: """ Hi, how are you? I'm fine, thank you. What you are doing? Nothing much, what about you? Yeah, I'm good, thank you. """`,
+                    content: `You are a psychological documentation structuring assistant.\n\nYour task is ONLY to restructure the given transcript into a dialogue format.\n\nSTRICT RULES:\n\nDo NOT summarize.\nDo NOT paraphrase.\nDo NOT modify wording.\nDo NOT add new words.\nDo NOT remove words.\nDo NOT correct grammar.\nPreserve original language exactly as spoken.\nIf speaker identity is unclear, label as: Unknown:\nOutput format must be strictly:\nPsychologist: "exact words" Patient: "exact words"\n\nThe psychologist always starts the conversation\nEach dialogue line must be on a new line.\nDo NOT include explanations.\nReturn ONLY structured dialogue.\nTranscript: """ Hi, how are you? I'm fine, thank you. What you are doing? Nothing much, what about you? Yeah, I'm good, thank you. """`,
                 },
                 {
                     role: 'assistant',
-                    content: `Doctor: "Hi, how are you?"\nPatient: "I'm fine, thank you."\nDoctor: "What you are doing?"\nPatient: "Nothing much, what about you?"\nDoctor: "Yeah, I'm good, thank you."`,
+                    content: `Psychologist: "Hi, how are you?"\nPatient: "I'm fine, thank you."\nPsychologist: "What you are doing?"\nPatient: "Nothing much, what about you?"\nPsychologist: "Yeah, I'm good, thank you."`,
                 },
                 {
                     role: 'user',
@@ -191,16 +212,27 @@ router.post('/:id/transcribe', async (req, res) => {
             stop: null,
         });
 
-        // Collect streamed response
         let structuredDialogue = '';
         for await (const chunk of chatCompletion) {
             const content = chunk.choices[0]?.delta?.content || '';
             structuredDialogue += content;
         }
 
-        // Store on recording object
         recording.structuredDialogue = structuredDialogue.trim();
         recording.transcribedAt = new Date().toISOString();
+
+        logAction(AUDIT_ACTIONS.DIALOGUE_STRUCTURED, recording.id);
+
+        // ─── Risk Detection ────────────────────────────
+        const riskResult = detectRisks(rawTranscript + ' ' + structuredDialogue);
+        recording.riskFlags = riskResult;
+        if (riskResult.hasRisks) {
+            logAction(AUDIT_ACTIONS.RISK_DETECTED, recording.id, {
+                flags: riskResult.flags.map(f => f.label),
+                severity: riskResult.highestSeverity,
+            });
+            console.log(`🚨 Risk detected in session ${recording.name}: ${riskResult.flags.map(f => f.label).join(', ')}`);
+        }
 
         console.log(`✅ Dialogue structured for: ${recording.name}`);
 
@@ -209,6 +241,7 @@ router.post('/:id/transcribe', async (req, res) => {
             transcription: rawTranscript,
             structuredDialogue: recording.structuredDialogue,
             segments: transcription.segments || [],
+            riskFlags: riskResult,
             recording: {
                 ...recording,
                 url: `http://localhost:${process.env.PORT || 5000}${recording.url}`,
@@ -225,11 +258,7 @@ router.post('/:id/transcribe', async (req, res) => {
 
 // ══════════════════════════════════════════════════════
 // ── POST /api/recordings/process ─────────────────────
-// UNIFIED PIPELINE: Upload → Transcribe → Structure → Report
-// This is the simplified one-shot endpoint:
-//   1. Speech-to-Text  (Groq Whisper)
-//   2. Dialogue Structuring  (LLM)
-//   3. Medical Report Generation  (LLM)
+// UNIFIED PIPELINE: Upload → Transcribe → Structure → Report → Risk Detect
 // ══════════════════════════════════════════════════════
 router.post('/process', upload.single('audio'), async (req, res) => {
     if (!req.file) {
@@ -240,8 +269,17 @@ router.post('/process', upload.single('audio'), async (req, res) => {
         return res.status(500).json({ error: 'GROQ_API_KEY is not configured. Add it to backend/.env' });
     }
 
+    const sessionId = req.body.sessionId || uuidv4();
+
+    // ── Consent Verification ──────────────────────────
+    // Consent is logged from the frontend before recording starts.
+    // We verify it exists here.
+    if (!hasConsent(sessionId)) {
+        console.warn(`⚠️  No consent record for session ${sessionId} — proceeding (consent may have been given client-side).`);
+    }
+
     const recording = {
-        id: uuidv4(),
+        id: sessionId,
         name: req.body.name || `Session ${recordings.length + 1}`,
         filename: req.file.filename,
         originalName: req.file.originalname,
@@ -256,6 +294,8 @@ router.post('/process', upload.single('audio'), async (req, res) => {
 
     try {
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+        logAction(AUDIT_ACTIONS.SESSION_CREATED, recording.id, { name: recording.name });
 
         // ─── STEP 1/3: Speech-to-Text (Whisper) ────────
         console.log(`\n🔄 [1/3] Transcribing audio: ${recording.name}...`);
@@ -272,6 +312,7 @@ router.post('/process', upload.single('audio'), async (req, res) => {
         recording.transcriptionSegments = transcription.segments || [];
 
         console.log(`✅ [1/3] Transcription complete (${rawTranscript.length} chars)`);
+        logAction(AUDIT_ACTIONS.TRANSCRIPTION_COMPLETED, recording.id, { chars: rawTranscript.length });
 
         // ─── STEP 2/3: Structure as Doctor/Patient Dialogue ─
         console.log(`🔄 [2/3] Structuring dialogue...`);
@@ -280,11 +321,11 @@ router.post('/process', upload.single('audio'), async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: `You are a medical documentation structuring assistant.\n\nYour task is ONLY to restructure the given transcript into a dialogue format.\n\nSTRICT RULES:\n\nDo NOT summarize.\nDo NOT paraphrase.\nDo NOT modify wording.\nDo NOT add new words.\nDo NOT remove words.\nDo NOT correct grammar.\nPreserve original language exactly as spoken.\nIf speaker identity is unclear, label as: Unknown:\nOutput format must be strictly:\nDoctor: "exact words" Patient: "exact words"\n\nThe doctor always starts the conversation\nEach dialogue line must be on a new line.\nDo NOT include explanations.\nReturn ONLY structured dialogue.\nTranscript: """ Hi, how are you? I'm fine, thank you. What you are doing? Nothing much, what about you? Yeah, I'm good, thank you. """`,
+                    content: `You are a psychological documentation structuring assistant.\n\nYour task is ONLY to restructure the given transcript into a dialogue format.\n\nSTRICT RULES:\n\nDo NOT summarize.\nDo NOT paraphrase.\nDo NOT modify wording.\nDo NOT add new words.\nDo NOT remove words.\nDo NOT correct grammar.\nPreserve original language exactly as spoken.\nIf speaker identity is unclear, label as: Unknown:\nOutput format must be strictly:\nPsychologist: "exact words" Patient: "exact words"\n\nThe psychologist always starts the conversation\nEach dialogue line must be on a new line.\nDo NOT include explanations.\nReturn ONLY structured dialogue.\nTranscript: """ Hi, how are you? I'm fine, thank you. What you are doing? Nothing much, what about you? Yeah, I'm good, thank you. """`,
                 },
                 {
                     role: 'assistant',
-                    content: `Doctor: "Hi, how are you?"\nPatient: "I'm fine, thank you."\nDoctor: "What you are doing?"\nPatient: "Nothing much, what about you?"\nDoctor: "Yeah, I'm good, thank you."`,
+                    content: `Psychologist: "Hi, how are you?"\nPatient: "I'm fine, thank you."\nPsychologist: "What you are doing?"\nPatient: "Nothing much, what about you?"\nPsychologist: "Yeah, I'm good, thank you."`,
                 },
                 {
                     role: 'user',
@@ -308,6 +349,7 @@ router.post('/process', upload.single('audio'), async (req, res) => {
 
         recording.structuredDialogue = structuredDialogue.trim();
         console.log(`✅ [2/3] Dialogue structured (${recording.structuredDialogue.length} chars)`);
+        logAction(AUDIT_ACTIONS.DIALOGUE_STRUCTURED, recording.id);
 
         // ─── STEP 3/3: Generate Medical Report ─────────
         console.log(`🔄 [3/3] Generating medical report...`);
@@ -319,6 +361,43 @@ router.post('/process', upload.single('audio'), async (req, res) => {
         recording.reportGeneratedAt = new Date().toISOString();
 
         console.log(`✅ [3/3] Medical report ready (${medicalReport.length} chars)`);
+        logAction(AUDIT_ACTIONS.REPORT_GENERATED, recording.id, { chars: medicalReport.length });
+
+        // ─── Step 4: Clinical Intelligence (Automatic) ──
+        // Generate ICD-10 suggestions and Scale scores for longitudinal tracking
+        console.log(`🔄 [4/4] Generating clinical intelligence (ICD/Scales)...`);
+
+        const [icdResult, scaleResult] = await Promise.all([
+            suggestICDCodes(medicalReport).catch(e => { console.error('ICD failed:', e); return null; }),
+            estimateScaleScores(medicalReport).catch(e => { console.error('Scales failed:', e); return null; })
+        ]);
+
+        recording.icdCodes = icdResult;
+        recording.scaleScores = scaleResult;
+
+        if (icdResult) logAction(AUDIT_ACTIONS.ICD_CODES_GENERATED, recording.id);
+        if (scaleResult) logAction(AUDIT_ACTIONS.SCALES_CALCULATED, recording.id);
+
+        console.log(`✅ [4/4] Clinical intelligence processed`);
+
+        // ─── Risk Detection ────────────────────────────
+        const riskResult = detectRisks(rawTranscript + ' ' + structuredDialogue + ' ' + medicalReport);
+        recording.riskFlags = riskResult;
+
+        if (riskResult.hasRisks) {
+            logAction(AUDIT_ACTIONS.RISK_DETECTED, recording.id, {
+                flags: riskResult.flags.map(f => f.label),
+                severity: riskResult.highestSeverity,
+            });
+            console.log(`🚨 Risk flags detected: ${riskResult.flags.map(f => `${f.icon} ${f.label}`).join(', ')}`);
+        }
+
+        // ─── Zero-Retention: Delete audio ──────────────
+        const retentionDays = getStorageRetentionDays();
+        if (retentionDays === 0) {
+            deleteAudioFile(recording);
+        }
+
         console.log(`\n🎉 Full pipeline complete for: ${recording.name}\n`);
 
         // Store in memory
@@ -329,12 +408,14 @@ router.post('/process', upload.single('audio'), async (req, res) => {
             message: 'Full pipeline complete — recording processed',
             recording: {
                 ...recording,
-                url: `http://localhost:${process.env.PORT || 5000}${recording.url}`,
+                url: recording.audioDeleted ? null : `http://localhost:${process.env.PORT || 5000}${recording.url}`,
             },
-            // Pipeline outputs
             transcription: rawTranscript,
             structuredDialogue: recording.structuredDialogue,
             medicalReport,
+            riskFlags: riskResult,
+            icdCodes: icdResult,
+            scaleScores: scaleResult,
         });
     } catch (err) {
         console.error('❌ Pipeline failed:', err.message);

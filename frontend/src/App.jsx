@@ -1,10 +1,12 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import Record from './pages/Record'
 import Report from './pages/Report'
+import Security from './pages/Security'
+import Sessions from './pages/Sessions'
 
 const Navbar = () => {
   const location = useLocation();
-  const isHome = location.pathname === '/';
+  const path = location.pathname;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 backdrop-blur-md bg-[#0a0a0f]/60 border-b border-white/5">
@@ -21,8 +23,9 @@ const Navbar = () => {
       </Link>
 
       <div className="flex items-center gap-6">
-        <Link to="/" className={`text-sm font-medium transition-colors ${isHome ? 'text-white' : 'text-gray-400 hover:text-white'}`}>Home</Link>
-        <Link to="/record" className={`text-sm font-medium transition-colors ${!isHome ? 'text-white' : 'text-gray-400 hover:text-white'}`}>Sessions</Link>
+        <Link to="/" className={`text-sm font-medium transition-colors ${path === '/' ? 'text-white' : 'text-gray-400 hover:text-white'}`}>Home</Link>
+        <Link to="/sessions" className={`text-sm font-medium transition-colors ${path === '/sessions' ? 'text-white' : 'text-gray-400 hover:text-white'}`}>Dashboard</Link>
+        <Link to="/security" className={`text-sm font-medium transition-colors ${path === '/security' ? 'text-white' : 'text-gray-400 hover:text-white'}`}>Security</Link>
         <Link
           to="/record"
           className="px-5 py-2.5 rounded-xl bg-indigo-500 text-white text-sm font-semibold hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20"
@@ -37,30 +40,27 @@ const Navbar = () => {
 function Home() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] pt-32 pb-20 px-6 overflow-hidden relative">
-      {/* Grid Background */}
       <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-
-      {/* Dynamic Background Blobs */}
       <div className="fixed top-[-100px] left-[-80px] w-[600px] h-[600px] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-60px] right-[-40px] w-[500px] h-[500px] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Hero Section */}
         <div className="flex flex-col items-center text-center gap-10 animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
             </span>
-            Clinical Documentation v2.0
+            Secure Clinical Infrastructure v2.0
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-tight max-w-4xl">
-            Smarter Notes for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-sky-400">Better Care.</span>
+          <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-tight max-w-5xl">
+            Secure Psychiatric Documentation<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-sky-400">Built for Risk-Sensitive Practice.</span>
           </h1>
 
           <p className="text-gray-400 text-xl max-w-2xl leading-relaxed">
-            Automate your patient documentation with high-fidelity AI. Record consultations, generate structured clinical reports, and convert to SOAP notes in seconds.
+            AES-256 encrypted. Zero-retention. Audit-logged. Automate clinical documentation with enterprise-grade AI while maintaining full compliance.
           </p>
 
           <div className="flex items-center gap-4 mt-4">
@@ -68,28 +68,32 @@ function Home() {
               to="/record"
               className="px-8 py-4 rounded-2xl bg-indigo-500 text-white font-bold text-lg shadow-2xl shadow-indigo-500/30 hover:bg-indigo-400 hover:scale-105 transition-all duration-300 no-underline flex items-center gap-3"
             >
-              Get Started Free
+              Start Secure Session
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
               </svg>
             </Link>
+            <Link
+              to="/security"
+              className="px-8 py-4 rounded-2xl border border-white/10 text-gray-300 font-bold text-lg hover:bg-white/5 hover:border-white/20 transition-all duration-300 no-underline"
+            >
+              View Security →
+            </Link>
           </div>
         </div>
 
-        {/* Feature Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-32 animate-slide-up [animation-delay:200ms]">
           {[
             {
               icon: (
-                <svg className="w-8 h-8 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
+                <svg className="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               ),
-              title: 'Secure Recording',
-              desc: 'High-fidelity audio capture designed for clinical environments with deep noise suppression.'
+              title: 'AES-256 Encryption',
+              desc: 'Military-grade AES-256-GCM encryption for all clinical data at rest. Zero-retention audio deletion. HSTS enforced.'
             },
             {
               icon: (
@@ -98,8 +102,8 @@ function Home() {
                   <path d="M8 9h8m-8 4h5" />
                 </svg>
               ),
-              title: 'AI Structuring',
-              desc: 'Automatically separates doctor and patient dialogue while filtering irrelevant small talk.'
+              title: 'Risk Intelligence',
+              desc: 'Real-time detection of suicide risk, self-harm, psychosis indicators. ICD-10/DSM-5 coding. PHQ-9, GAD-7 estimation.'
             },
             {
               icon: (
@@ -111,8 +115,8 @@ function Home() {
                   <polyline points="10 9 9 9 8 9" />
                 </svg>
               ),
-              title: 'Clinical Output',
-              desc: 'Generate psychiatric reports and SOAP notes optimized for clinical extraction and accuracy.'
+              title: 'EHR-Ready Exports',
+              desc: 'Structured SOAP notes, FHIR-compatible JSON, PDF, and plain text. Consent logging and complete audit trails.'
             },
           ].map((f) => (
             <div
@@ -127,11 +131,18 @@ function Home() {
             </div>
           ))}
         </div>
+
+        <div className="mt-20 flex flex-wrap justify-center gap-4">
+          {['AES-256-GCM', 'Zero-Retention', 'HSTS', 'Consent Logging', 'Audit Trail', 'Risk Detection', 'No Training Usage'].map(badge => (
+            <span key={badge} className="px-4 py-2 rounded-full bg-white/[0.03] border border-white/[0.06] text-gray-400 text-xs font-bold uppercase tracking-wider">
+              ✓ {badge}
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* Basic Footer */}
       <footer className="mt-40 border-t border-white/5 py-12 text-center">
-        <p className="text-gray-600 text-sm">© 2026 CeriNote. Precision Medical Informatics.</p>
+        <p className="text-gray-600 text-sm">© 2026 CeriNote. Secure Psychiatric Documentation Infrastructure.</p>
       </footer>
     </div>
   )
@@ -145,6 +156,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/record" element={<Record />} />
         <Route path="/report" element={<Report />} />
+        <Route path="/security" element={<Security />} />
+        <Route path="/sessions" element={<Sessions />} />
       </Routes>
     </>
   )

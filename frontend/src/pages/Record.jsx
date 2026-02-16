@@ -7,24 +7,44 @@ import './RecordExtra.css';
 const API_BASE = 'http://localhost:5000/api';
 
 function Record() {
+  // ── Core Recording State ──────────────────────────
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0); // 0=Upload, 1=Transcribe, 2=Dialogue, 3=Report
+  const [currentStep, setCurrentStep] = useState(0);
   const [pipelineError, setPipelineError] = useState(null);
   const [showResult, setShowResult] = useState(false);
-  const [result, setResult] = useState(null); // { transcription, structuredDialogue, medicalReport, recording }
+  const [result, setResult] = useState(null);
   const [activeTab, setActiveTab] = useState('report');
   const [copied, setCopied] = useState(false);
 
-  // SOAP State
+  // ── SOAP State ────────────────────────────────────
   const [soapNote, setSoapNote] = useState(null);
   const [isSoapLoading, setIsSoapLoading] = useState(false);
   const [soapError, setSoapError] = useState(null);
-  const [soapSaved, setSoapSaved] = useState(false);
 
+  // ── Consent State ─────────────────────────────────
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+
+  // ── Risk Detection State ──────────────────────────
+  const [riskFlags, setRiskFlags] = useState(null);
+
+  // ── Clinical Intelligence State ───────────────────
+  const [icdCodes, setIcdCodes] = useState(null);
+  const [icdLoading, setIcdLoading] = useState(false);
+  const [scaleScores, setScaleScores] = useState(null);
+  const [scalesLoading, setScalesLoading] = useState(false);
+
+  // ── Input Mode State ──────────────────────────────
+  const [inputMode, setInputMode] = useState('record'); // 'record' | 'text'
+  const [manualText, setManualText] = useState('');
+  const [manualProcessing, setManualProcessing] = useState(false);
+
+  // ── Refs ──────────────────────────────────────────
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
@@ -34,9 +54,40 @@ function Record() {
   const animationFrameRef = useRef(null);
   const reportRef = useRef(null);
 
-  // ── Recorder Logic ─────────────────────────────────
+  // ── Consent Logic ─────────────────────────────────
+  const generateSessionId = () => `SESSION-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-  const startRecording = async () => {
+  const handleConsentConfirm = async () => {
+    const sid = generateSessionId();
+    setSessionId(sid);
+    setConsentGiven(true);
+    setShowConsentModal(false);
+
+    // Log consent to backend
+    try {
+      await fetch(`${API_BASE}/security/consent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sid, doctorId: 'DOCTOR_001' }),
+      });
+    } catch (err) {
+      console.warn('Consent logging failed (non-blocking):', err.message);
+    }
+
+    // Start recording after consent
+    actuallyStartRecording();
+  };
+
+  // ── Recorder Logic ────────────────────────────────
+  const startRecording = () => {
+    if (!consentGiven) {
+      setShowConsentModal(true);
+      return;
+    }
+    actuallyStartRecording();
+  };
+
+  const actuallyStartRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -52,7 +103,6 @@ function Record() {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(blob);
         stopAnalyser();
-        // ★ Automatically trigger the pipeline!
         processRecording(blob, formatTime(duration));
       };
 
@@ -104,7 +154,7 @@ function Record() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // ── Visualizer Logic ───────────────────────────────
+  // ── Visualizer Logic ──────────────────────────────
   const startAnalyser = (stream) => {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(stream);
@@ -149,24 +199,26 @@ function Record() {
     draw();
   };
 
-  // ── Processing Logic (The 3 Step Pipeline) ────────
+  // ── Processing Logic (Unified Pipeline) ───────────
   const processRecording = useCallback(async (blob, recordingDuration) => {
     setIsProcessing(true);
     setCurrentStep(0);
     setPipelineError(null);
     setShowResult(false);
     setSoapNote(null);
+    setRiskFlags(null);
+    setIcdCodes(null);
+    setScaleScores(null);
 
     try {
       const formData = new FormData();
       formData.append('audio', blob, `session-${Date.now()}.webm`);
       formData.append('duration', recordingDuration);
+      if (sessionId) formData.append('sessionId', sessionId);
 
-      // UX Simulation of steps
-      setCurrentStep(0); // Uploading
+      setCurrentStep(0);
       await new Promise(r => setTimeout(r, 600));
-
-      setCurrentStep(1); // Transcribing (This happens on server)
+      setCurrentStep(1);
 
       const res = await fetch(`${API_BASE}/recordings/process`, {
         method: 'POST',
@@ -178,17 +230,20 @@ function Record() {
         throw new Error(errData.details || 'Processing failed');
       }
 
-      // UX: Quickly show the other steps completing
-      setCurrentStep(2); // Structuring
+      setCurrentStep(2);
       await new Promise(r => setTimeout(r, 600));
-      setCurrentStep(3); // Reporting
+      setCurrentStep(3);
       await new Promise(r => setTimeout(r, 600));
 
       const data = await res.json();
       setResult(data);
       setShowResult(true);
 
-      // Auto-scroll to report
+      // Set risk flags from backend
+      if (data.riskFlags) {
+        setRiskFlags(data.riskFlags);
+      }
+
       setTimeout(() => {
         reportRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -199,7 +254,46 @@ function Record() {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [sessionId]);
+
+  // ── Manual Text Processing ────────────────────────
+  const processManualText = async () => {
+    if (!manualText.trim()) return;
+    setManualProcessing(true);
+    setPipelineError(null);
+    setShowResult(false);
+    setSoapNote(null);
+    setRiskFlags(null);
+    setIcdCodes(null);
+    setScaleScores(null);
+
+    try {
+      // Generate report from manual text
+      const res = await fetch(`${API_BASE}/reports/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: manualText }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Report generation failed');
+
+      setResult({
+        transcription: manualText,
+        structuredDialogue: manualText,
+        medicalReport: data.report,
+        recording: { name: 'Manual Input Session' },
+      });
+      setShowResult(true);
+
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err) {
+      setPipelineError(err.message);
+    } finally {
+      setManualProcessing(false);
+    }
+  };
 
   const startNewSession = () => {
     setAudioBlob(null);
@@ -211,17 +305,73 @@ function Record() {
     setSoapNote(null);
     setCurrentStep(0);
     setActiveTab('report');
+    setRiskFlags(null);
+    setIcdCodes(null);
+    setScaleScores(null);
+    setConsentGiven(false);
+    setSessionId(null);
+    setManualText('');
   };
 
   // ── Actions: Copy, PDF, SOAP ──────────────────────
-
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Helper: Format Markdown Report
+  // Export as plain text
+  const downloadPlainText = (content, filename) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export as FHIR-compatible JSON
+  const downloadFHIRJSON = () => {
+    if (!result) return;
+    const fhirDoc = {
+      resourceType: 'DocumentReference',
+      status: 'current',
+      type: {
+        coding: [{
+          system: 'http://loinc.org',
+          code: '34117-2',
+          display: 'History and physical note',
+        }],
+      },
+      date: new Date().toISOString(),
+      description: 'CeriNote Clinical Session Report',
+      content: [{
+        attachment: {
+          contentType: 'text/plain',
+          data: btoa(result.medicalReport || ''),
+        },
+      }],
+      context: {
+        event: [{
+          coding: [{
+            system: 'http://snomed.info/sct',
+            code: '371530004',
+            display: 'Clinical consultation',
+          }],
+        }],
+      },
+    };
+    const blob = new Blob([JSON.stringify(fhirDoc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'CeriNote_FHIR_Report.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Format Markdown Report
   const formatReport = (text) => {
     if (!text) return null;
     return text.split('\n').map((line, i) => {
@@ -278,7 +428,7 @@ function Record() {
     );
   };
 
-  // ── PDF Generation (Ported from Report.jsx) ──────
+  // ── PDF Generation ────────────────────────────────
   const downloadPDF = () => {
     if (!result?.medicalReport) return;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -326,20 +476,17 @@ function Record() {
     const margin = 18;
     let y = 18;
 
-    // Header Background
     doc.setFillColor(...darkBg);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
     doc.setFillColor(...primaryColor);
     doc.rect(0, 0, pageWidth, 3, 'F');
 
-    // Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(...textWhite);
     doc.text('Psychiatric SOAP Note', margin, y);
     y += 10;
 
-    // Metadata
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, margin, y);
@@ -348,7 +495,6 @@ function Record() {
     }
     y += 12;
 
-    // Helper to add section
     const addSection = (title, content, color) => {
       if (y > pageHeight - 40) {
         doc.addPage();
@@ -356,13 +502,11 @@ function Record() {
         doc.rect(0, 0, pageWidth, pageHeight, 'F');
         y = 20;
       }
-
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       doc.setTextColor(...color);
       doc.text(title, margin, y);
       y += 6;
-
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(220, 220, 230);
@@ -371,18 +515,17 @@ function Record() {
       y += (lines.length * 5) + 8;
     };
 
-    if (soapNote.subjective) addSection('SUBJECTIVE', soapNote.subjective, [129, 140, 248]); // Indigo
-    if (soapNote.objective) addSection('OBJECTIVE', soapNote.objective, [52, 211, 153]);   // Emerald
-    if (soapNote.assessment) addSection('ASSESSMENT', soapNote.assessment, [251, 191, 36]); // Amber
-    if (soapNote.plan) addSection('PLAN', soapNote.plan, [244, 114, 182]);       // Pink
+    if (soapNote.subjective) addSection('SUBJECTIVE', soapNote.subjective, [129, 140, 248]);
+    if (soapNote.objective) addSection('OBJECTIVE', soapNote.objective, [52, 211, 153]);
+    if (soapNote.assessment) addSection('ASSESSMENT', soapNote.assessment, [251, 191, 36]);
+    if (soapNote.plan) addSection('PLAN', soapNote.plan, [244, 114, 182]);
 
     doc.save('SOAP_Note.pdf');
   };
 
-  // ── SOAP Generation (Ported from Report.jsx) ──────
+  // ── SOAP Generation ───────────────────────────────
   const handleConvertToSOAP = async () => {
     if (!result?.medicalReport) return;
-
     setIsSoapLoading(true);
     setSoapError(null);
     setSoapNote(null);
@@ -392,11 +535,10 @@ function Record() {
       const res = await fetch(`${API_BASE}/reports/soap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analyzedText: result.medicalReport }),
+        body: JSON.stringify({ analyzedText: result.medicalReport, sessionId }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'SOAP conversion failed');
-
       setSoapNote(parseSOAPSections(data.soapNote));
     } catch (err) {
       setSoapError(err.message);
@@ -427,9 +569,45 @@ function Record() {
     return sections;
   };
 
-  // ── UI Components ────────────────────────────────
+  // ── ICD-10 / DSM-5 Generation ─────────────────────
+  const generateICDCodes = async () => {
+    if (!result?.medicalReport) return;
+    setIcdLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/reports/icd-codes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicalText: result.medicalReport, sessionId }),
+      });
+      const data = await res.json();
+      if (data.success) setIcdCodes(data);
+    } catch (err) {
+      console.error('ICD generation failed:', err);
+    } finally {
+      setIcdLoading(false);
+    }
+  };
 
-  // Step Indicators
+  // ── Scale Score Estimation ────────────────────────
+  const generateScaleScores = async () => {
+    if (!result?.medicalReport) return;
+    setScalesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/reports/scales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicalText: result.medicalReport, sessionId }),
+      });
+      const data = await res.json();
+      if (data.success) setScaleScores(data);
+    } catch (err) {
+      console.error('Scale estimation failed:', err);
+    } finally {
+      setScalesLoading(false);
+    }
+  };
+
+  // ── Pipeline Steps ────────────────────────────────
   const steps = [
     { id: 'upload', label: 'Uploading', icon: '☁️' },
     { id: 'transcribe', label: 'Speech to Text', icon: '🎙️' },
@@ -437,20 +615,101 @@ function Record() {
     { id: 'report', label: 'Medical Report', icon: '📋' },
   ];
 
+  // ═══════════════════════════════════════════════════
+  // ── RENDER ────────────────────────────────────────
+  // ═══════════════════════════════════════════════════
   return (
     <div className="record-page pt-32 px-6 min-h-screen bg-[#0a0a0f]">
       <div className="max-w-4xl mx-auto w-full">
-        {/* Dynamic Background Blobs (Shorter/Subtle for dashboard) */}
         <div className="fixed top-[-50px] right-[-50px] w-[300px] h-[300px] rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none" />
 
-        <div className="mb-10 animate-fade-in text-center md:text-left">
+        <div className="mb-10 text-center md:text-left">
           <h1 className="text-3xl font-bold text-white tracking-tight">Session Workspace</h1>
           <p className="text-gray-500 text-sm mt-1">Record, transcribe, and generate clinical documentation.</p>
         </div>
 
+        {/* ══ CONSENT MODAL ══ */}
+        {showConsentModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-[#111118] border border-white/10 rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 flex items-center justify-center text-2xl">🔒</div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Patient Consent Required</h2>
+                  <p className="text-gray-500 text-xs mt-0.5">Mandatory before session recording</p>
+                </div>
+              </div>
 
-        {/* ── Recorder Section ── */}
+              <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 mb-6 text-sm text-gray-400 leading-relaxed space-y-3">
+                <p>By confirming, you certify that:</p>
+                <div className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">✓</span><span>Patient consent has been obtained for this clinical session recording.</span></div>
+                <div className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">✓</span><span>The patient has been informed that AI will process the audio for documentation purposes.</span></div>
+                <div className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">✓</span><span>Audio is deleted immediately after processing (zero-retention default).</span></div>
+                <div className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">✓</span><span>Patient may request data deletion at any time.</span></div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConsentModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 font-semibold hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConsentConfirm}
+                  className="flex-1 py-3 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20"
+                >
+                  Confirm & Start Recording
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ RISK ALERT BANNER ══ */}
+        {riskFlags?.hasRisks && (
+          <div className="mb-8 rounded-2xl border border-red-500/30 bg-red-500/5 p-5 animate-fade-slide-up">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">🚨</span>
+              <div>
+                <h3 className="text-red-400 font-bold text-base">Clinical Risk Detected — Review Required</h3>
+                <p className="text-red-400/60 text-xs mt-0.5">Severity: {riskFlags.highestSeverity}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {riskFlags.flags.map((flag, i) => (
+                <div
+                  key={i}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                  style={{ background: `${flag.color}15`, color: flag.color, border: `1px solid ${flag.color}30` }}
+                >
+                  {flag.icon} {flag.label} ({flag.count} match{flag.count > 1 ? 'es' : ''})
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══ INPUT MODE SELECTOR ══ */}
         {!showResult && !isProcessing && (
+          <div className="flex gap-3 mb-8">
+            <button
+              onClick={() => setInputMode('record')}
+              className={`flex-1 py-3 rounded-xl border text-sm font-semibold transition-all ${inputMode === 'record' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/20'}`}
+            >
+              🎙️ Full Recording
+            </button>
+            <button
+              onClick={() => setInputMode('text')}
+              className={`flex-1 py-3 rounded-xl border text-sm font-semibold transition-all ${inputMode === 'text' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/20'}`}
+            >
+              📝 Manual Text Input
+            </button>
+          </div>
+        )}
+
+        {/* ══ RECORDER SECTION ══ */}
+        {!showResult && !isProcessing && inputMode === 'record' && (
           <div className="recorder-section animate-fade-slide-up">
             <div className="recorder-card">
               <div className={`timer ${isRecording ? 'timer--active' : ''}`}>
@@ -499,7 +758,38 @@ function Record() {
           </div>
         )}
 
-        {/* ── Pipeline Progress Section ── */}
+        {/* ══ MANUAL TEXT INPUT ══ */}
+        {!showResult && !isProcessing && inputMode === 'text' && (
+          <div className="animate-fade-slide-up">
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6">
+              <h3 className="text-white font-semibold mb-3">Paste Session Transcript or Clinical Notes</h3>
+              <textarea
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder="Paste your doctor-patient dialogue or clinical notes here..."
+                className="w-full h-48 bg-black/30 border border-white/10 rounded-xl p-4 text-gray-300 text-sm resize-y focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 outline-none transition-all"
+              />
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-gray-600 text-xs">{manualText.length} characters</span>
+                <button
+                  onClick={processManualText}
+                  disabled={!manualText.trim() || manualProcessing}
+                  className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-bold text-sm hover:bg-indigo-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20"
+                >
+                  {manualProcessing ? 'Processing...' : 'Generate Report →'}
+                </button>
+              </div>
+            </div>
+            {pipelineError && (
+              <div className="pipeline-error" style={{ marginTop: '20px' }}>
+                <div className="error-icon">⚠️</div>
+                <div><h4>Error</h4><p>{pipelineError}</p></div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ PIPELINE PROGRESS ══ */}
         {isProcessing && (
           <div className="pipeline-section animate-fade-slide-up">
             <div className="pipeline-card">
@@ -536,7 +826,7 @@ function Record() {
           </div>
         )}
 
-        {/* ── Result Dashboard (The "End Product") ── */}
+        {/* ══ RESULT DASHBOARD ══ */}
         {showResult && result && (
           <div className="result-section animate-fade-slide-up" ref={reportRef}>
             <div className="result-header">
@@ -549,16 +839,19 @@ function Record() {
             <div className="tabs">
               <button className={`tab-btn ${activeTab === 'report' ? 'active' : ''}`} onClick={() => setActiveTab('report')}>Medical Report</button>
               <button className={`tab-btn ${activeTab === 'soap' ? 'active' : ''}`} onClick={() => setActiveTab('soap')}>SOAP Note</button>
+              <button className={`tab-btn ${activeTab === 'clinical' ? 'active' : ''}`} onClick={() => setActiveTab('clinical')}>Clinical Intel</button>
               <button className={`tab-btn ${activeTab === 'dialogue' ? 'active' : ''}`} onClick={() => setActiveTab('dialogue')}>Dialogue</button>
               <button className={`tab-btn ${activeTab === 'transcript' ? 'active' : ''}`} onClick={() => setActiveTab('transcript')}>Transcript</button>
             </div>
 
             <div className="result-content-box">
-              {/* MEDICAL REPORT TAB */}
+              {/* ── MEDICAL REPORT TAB ── */}
               {activeTab === 'report' && (
                 <div className="report-view">
                   <div className="toolbar">
                     <button onClick={downloadPDF} className="tool-btn">Download PDF</button>
+                    <button onClick={() => downloadPlainText(result.medicalReport, 'Medical_Report.txt')} className="tool-btn">Plain Text</button>
+                    <button onClick={downloadFHIRJSON} className="tool-btn">FHIR JSON</button>
                     <button onClick={handleCopy.bind(null, result.medicalReport)} className="tool-btn">{copied ? 'Copied' : 'Copy Text'}</button>
                     <button onClick={handleConvertToSOAP} className="tool-btn highlight">Generate SOAP Note →</button>
                   </div>
@@ -568,7 +861,7 @@ function Record() {
                 </div>
               )}
 
-              {/* SOAP NOTE TAB */}
+              {/* ── SOAP NOTE TAB ── */}
               {activeTab === 'soap' && (
                 <div className="soap-view">
                   {!soapNote && !isSoapLoading && !soapError && (
@@ -590,7 +883,7 @@ function Record() {
                   {soapNote && (
                     <div className="soap-editor">
                       <div className="toolbar">
-                        <span className="label" style={{ color: '#a5b4fc', fontWeight: 600, marginRight: 'auto' }}>Professional SOAP Note</span>
+                        <span className="label" style={{ marginRight: 'auto' }}>Professional SOAP Note</span>
                         <button className="tool-btn" onClick={downloadSOAPPDF}>Download PDF</button>
                         <button className="tool-btn" onClick={() => handleCopy(JSON.stringify(soapNote, null, 2))}>Copy JSON</button>
                       </div>
@@ -598,34 +891,22 @@ function Record() {
                         <div className="soap-section">
                           <span className="soap-letter s">S</span>
                           <h3>Subjective</h3>
-                          <textarea
-                            value={soapNote.subjective || ''}
-                            onChange={(e) => handleSoapChange('subjective', e.target.value)}
-                          />
+                          <textarea value={soapNote.subjective || ''} onChange={(e) => handleSoapChange('subjective', e.target.value)} />
                         </div>
                         <div className="soap-section">
                           <span className="soap-letter o">O</span>
                           <h3>Objective</h3>
-                          <textarea
-                            value={soapNote.objective || ''}
-                            onChange={(e) => handleSoapChange('objective', e.target.value)}
-                          />
+                          <textarea value={soapNote.objective || ''} onChange={(e) => handleSoapChange('objective', e.target.value)} />
                         </div>
                         <div className="soap-section">
                           <span className="soap-letter a">A</span>
                           <h3>Assessment</h3>
-                          <textarea
-                            value={soapNote.assessment || ''}
-                            onChange={(e) => handleSoapChange('assessment', e.target.value)}
-                          />
+                          <textarea value={soapNote.assessment || ''} onChange={(e) => handleSoapChange('assessment', e.target.value)} />
                         </div>
                         <div className="soap-section">
                           <span className="soap-letter p">P</span>
                           <h3>Plan</h3>
-                          <textarea
-                            value={soapNote.plan || ''}
-                            onChange={(e) => handleSoapChange('plan', e.target.value)}
-                          />
+                          <textarea value={soapNote.plan || ''} onChange={(e) => handleSoapChange('plan', e.target.value)} />
                         </div>
                       </div>
                     </div>
@@ -633,7 +914,98 @@ function Record() {
                 </div>
               )}
 
-              {/* DIALOGUE TAB */}
+              {/* ── CLINICAL INTELLIGENCE TAB ── */}
+              {activeTab === 'clinical' && (
+                <div className="clinical-intel-view">
+                  {/* ICD-10 / DSM-5 Section */}
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-white font-bold text-base">ICD-10 / DSM-5 Coding</h3>
+                        <p className="text-gray-500 text-xs mt-0.5">AI-suggested diagnostic codes</p>
+                      </div>
+                      {!icdCodes && (
+                        <button onClick={generateICDCodes} disabled={icdLoading} className="tool-btn highlight">
+                          {icdLoading ? 'Generating...' : 'Generate Codes'}
+                        </button>
+                      )}
+                    </div>
+
+                    {icdCodes?.codes && (
+                      <div className="space-y-3">
+                        {icdCodes.codes.map((code, i) => (
+                          <div key={i} className="bg-white/[0.03] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-400 font-mono font-bold text-sm">{code.icd10}</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${code.confidence === 'HIGH' ? 'bg-emerald-500/15 text-emerald-400' :
+                                  code.confidence === 'MODERATE' ? 'bg-amber-500/15 text-amber-400' :
+                                    'bg-gray-500/15 text-gray-400'
+                                }`}>{code.confidence}</span>
+                            </div>
+                            <p className="text-white text-sm font-medium">{code.dsm5}</p>
+                            <p className="text-gray-500 text-xs mt-1">{code.description}</p>
+                          </div>
+                        ))}
+                        <p className="text-amber-400/60 text-[10px] uppercase tracking-wider font-bold mt-4 px-1">
+                          ⚠️ {icdCodes.disclaimer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scale Scores Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-white font-bold text-base">Psychiatric Scale Estimation</h3>
+                        <p className="text-gray-500 text-xs mt-0.5">PHQ-9 · GAD-7 · YMRS · HAM-D</p>
+                      </div>
+                      {!scaleScores && (
+                        <button onClick={generateScaleScores} disabled={scalesLoading} className="tool-btn highlight">
+                          {scalesLoading ? 'Calculating...' : 'Estimate Scores'}
+                        </button>
+                      )}
+                    </div>
+
+                    {scaleScores?.scales && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { key: 'phq9', label: 'PHQ-9', subtitle: 'Depression', max: 27, color: '#818cf8' },
+                            { key: 'gad7', label: 'GAD-7', subtitle: 'Anxiety', max: 21, color: '#34d399' },
+                            { key: 'ymrs', label: 'YMRS', subtitle: 'Mania', max: 60, color: '#fbbf24' },
+                            { key: 'hamd', label: 'HAM-D', subtitle: 'Depression (Clinician)', max: 52, color: '#f472b6' },
+                          ].map(scale => {
+                            const data = scaleScores.scales[scale.key];
+                            if (!data) return null;
+                            const pct = Math.min(100, (data.score / scale.max) * 100);
+                            return (
+                              <div key={scale.key} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <span className="text-white font-bold text-sm">{scale.label}</span>
+                                    <p className="text-gray-500 text-[10px]">{scale.subtitle}</p>
+                                  </div>
+                                  <span className="text-2xl font-bold" style={{ color: scale.color }}>{data.score}</span>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden mb-2">
+                                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: scale.color }} />
+                                </div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: scale.color }}>{data.severity}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-amber-400/60 text-[10px] uppercase tracking-wider font-bold mt-4 px-1">
+                          ⚠️ {scaleScores.disclaimer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── DIALOGUE TAB ── */}
               {activeTab === 'dialogue' && (
                 <div className="dialogue-body">
                   <div className="toolbar"><button onClick={() => handleCopy(result.structuredDialogue)} className="tool-btn">Copy Dialogue</button></div>
@@ -641,7 +1013,7 @@ function Record() {
                 </div>
               )}
 
-              {/* TRANSCRIPT TAB */}
+              {/* ── TRANSCRIPT TAB ── */}
               {activeTab === 'transcript' && (
                 <div className="transcript-body">
                   <div className="toolbar"><button onClick={() => handleCopy(result.transcription)} className="tool-btn">Copy Transcript</button></div>
